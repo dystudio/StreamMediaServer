@@ -13,7 +13,7 @@ namespace Tester_windows
         {
             var task = Client.Init();
             task.Wait();
-            Client.PullStream("rtmp://121.42.182.33/live/31", "192.168.1.31", 8000, "admin", "admin@BX");
+            Client.PullStream("rtmp://121.42.182.33/live/31", "192.168.1.32", 8000, "admin", "admin@BX");
             Console.WriteLine("已启动");
             Console.ReadLine();
             task = Client.Cleanup();

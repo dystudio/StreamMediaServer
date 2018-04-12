@@ -1,6 +1,7 @@
 ﻿using StreamMediaServer.Core;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
@@ -51,6 +52,7 @@ namespace StreamMediaServer.HIKVision
         {
             return Task.Run(() =>
             {
+                int inx = 0;
                 var rtmpId = -1;
                 List<byte> buffer = new List<byte>();
                 NET_DVR_DEVICEINFO_V30 deviceInfo = new NET_DVR_DEVICEINFO_V30();
@@ -83,8 +85,9 @@ namespace StreamMediaServer.HIKVision
                             {
 
                                 var head = Marshal.ReadInt32(pBuffer, 0);
-                                if (head == -1174339584) //0x00, 0x00, 0x01, 0xBA = -1174339584
+                                if (head == -1174339584) //0x00, 0x00, 0x01, 0xBA = -1174339584   PS包
                                 {
+                                    /*如果收到PS包头，表示的是接下来的数据是一个新的PS包，上一个PS数据包接收完成*/
                                     if (buffer.Count > 0)
                                     {
                                         IntPtr p = Marshal.AllocHGlobal(buffer.Count);
@@ -94,13 +97,21 @@ namespace StreamMediaServer.HIKVision
                                     }
                                     buffer.Clear();
                                 }
-                                else if (-536805376 == head) //-536805376 = 0x00, 0x00, 0x01, 0xE0
+                                else if (-536805376 == head) //-536805376 = 0x00, 0x00, 0x01, 0xE0   视频
                                 {
+                                    /*如果收到视频包则追加到缓存中*/
                                     var skip = Marshal.ReadByte(pBuffer, 8) + 9;
                                     var buff = new byte[dwBufSize - skip];
                                     var pData = IntPtr.Add(pBuffer, skip);
                                     Marshal.Copy(pData, buff, 0, (int)(dwBufSize - skip));
                                     buffer.AddRange(buff);
+                                }
+                                else if(-1073676288 == head)   //-1073676288 = 0x00, 0x00, 0x01, 0xC0  音频
+                                {
+                                    /*如果收到音频包则追加到缓存中*/
+                                    var buff = new byte[dwBufSize];
+                                    Marshal.Copy(pBuffer, buff, 0, (int)dwBufSize);
+                                    File.WriteAllBytes(inx++.ToString("000000"), buff);
                                 }
                                 else
                                 {

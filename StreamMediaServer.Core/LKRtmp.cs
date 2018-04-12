@@ -31,11 +31,11 @@ namespace StreamMediaServer.Core
         /// 
         /// </summary>
         /// <param name="lHandle">初始化返回的句柄</param>
-        /// <param name="iDataType">H264为100</param>
+        /// <param name="iDataType">H264为100，ACC为204</param>
         /// <param name="pDataBuf">数据指针</param>
         /// <param name="iDataLen">数据长度</param>
         /// <param name="unPts">时间戳（保证递增即可）</param>
-        /// <param name="iKeyFrame">1关键帧， 0 非关键帧   (注：pDataBuf[4]==0x67 为关键帧</param>
+        /// <param name="iKeyFrame">1关键帧， 0 非关键帧   (注：H264的pDataBuf[4]==0x67 为关键帧</param>
         /// <returns></returns>
         [DllImport("LKRtmp.dll")]
         public static extern int LKRtmp_PutData(int lHandle, int iDataType, IntPtr pDataBuf, int iDataLen, UInt64 unPts, int iKeyFrame);
