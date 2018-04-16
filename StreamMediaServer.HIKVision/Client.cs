@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace StreamMediaServer.HIKVision
 {
-    public static class  Client
+    public static class Client
     {
         /// <summary>
         /// 初始化
@@ -58,6 +58,7 @@ namespace StreamMediaServer.HIKVision
                 NET_DVR_DEVICEINFO_V30 deviceInfo = new NET_DVR_DEVICEINFO_V30();
                 int playerId = -1;
 
+                //同步登陆
                 var userid = CHCNetSDK.NET_DVR_Login_V30(ip, port, username, password, ref deviceInfo);
                 if (userid >= 0)
                 {
@@ -72,6 +73,7 @@ namespace StreamMediaServer.HIKVision
                     previewInfo.bBlocked = true; //0- 非阻塞取流，1- 阻塞取流
                     previewInfo.dwDisplayBufNum = 15; //播放库显示缓冲区最大帧数
 
+                    //开视播放                   
                     playerId = CHCNetSDK.NET_DVR_RealPlay_V40(userid
                         , ref previewInfo
                         , (lRealHandle, dwDataType, pBuffer, dwBufSize, pUser) =>
@@ -83,17 +85,18 @@ namespace StreamMediaServer.HIKVision
                             }
                             else if (dwDataType == 2)
                             {
-
                                 var head = Marshal.ReadInt32(pBuffer, 0);
                                 if (head == -1174339584) //0x00, 0x00, 0x01, 0xBA = -1174339584   PS包
                                 {
                                     /*如果收到PS包头，表示的是接下来的数据是一个新的PS包，上一个PS数据包接收完成*/
                                     if (buffer.Count > 0)
                                     {
+                                        //Marshal.AllocHGlobal 分配内存 使用完成后一定要使用Marshal.FreeHGlobal 释放，否则会造成内存泄漏
                                         IntPtr p = Marshal.AllocHGlobal(buffer.Count);
                                         Marshal.Copy(buffer.ToArray(), 0, p, buffer.Count);
                                         var ts = (ulong)((DateTime.Now.ToUniversalTime().Ticks - 621355968000000000) / 10000);
                                         var result = LKRtmp.LKRtmp_PutData(rtmpId, 100, p, buffer.Count, ts, buffer[4] == 0x67 ? 1 : 0);
+                                        Marshal.FreeHGlobal(p);
                                     }
                                     buffer.Clear();
                                 }
@@ -106,7 +109,7 @@ namespace StreamMediaServer.HIKVision
                                     Marshal.Copy(pData, buff, 0, (int)(dwBufSize - skip));
                                     buffer.AddRange(buff);
                                 }
-                                else if(-1073676288 == head)   //-1073676288 = 0x00, 0x00, 0x01, 0xC0  音频
+                                else if (-1073676288 == head)   //-1073676288 = 0x00, 0x00, 0x01, 0xC0  音频
                                 {
                                     /*如果收到音频包则追加到缓存中*/
                                     var buff = new byte[dwBufSize];
