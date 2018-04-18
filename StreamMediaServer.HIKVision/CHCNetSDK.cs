@@ -38,6 +38,17 @@ namespace StreamMediaServer.HIKVision
         [DllImport("HCNetSDK.dll")]
         public static extern int NET_DVR_RealPlay_V40(int iUserID, ref NET_DVR_PREVIEWINFO lpPreviewInfo, REALDATACALLBACK fRealDataCallBack_V30, IntPtr pUser);
 
+        [DllImport("HCNetSDK.dll")]
+        public static extern bool NET_DVR_OpenSound(int lRealHandle);
+
+        [DllImport("HCNetSDK.dll")]
+        public static extern bool NET_DVR_CloseSound();
+
+        [DllImport("HCNetSDK.dll")]
+        public static extern bool NET_DVR_OpenSoundShare(int lRealHandle);
+
+        [DllImport("HCNetSDK.dll")]
+        public static extern bool NET_DVR_CloseSoundShare(int lRealHandle);
 
         [DllImport("HCNetSDK.dll")]
         public static extern bool NET_DVR_SetRealDataCallBack(int lRealHandle, REALDATACALLBACK fRealDataCallBack, IntPtr dwUser);

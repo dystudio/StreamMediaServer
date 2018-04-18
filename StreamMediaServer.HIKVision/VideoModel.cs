@@ -10,6 +10,7 @@ namespace StreamMediaServer.HIKVision
         public VideoModel()
         {
             Buffer = new List<byte>();
+            AudioBuffer = new List<byte>();
         }
 
         public string IP
@@ -34,7 +35,7 @@ namespace StreamMediaServer.HIKVision
 
         public int RealHandle
         {
-            get;set;
+            get; set;
         }
 
         public int RTMPHandle
@@ -44,7 +45,12 @@ namespace StreamMediaServer.HIKVision
 
         public List<byte> Buffer
         {
-            get;set;
+            get; set;
+        }
+
+        public List<byte> AudioBuffer
+        {
+            get; set;
         }
     }
 }

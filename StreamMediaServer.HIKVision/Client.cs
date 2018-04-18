@@ -10,6 +10,7 @@ namespace StreamMediaServer.HIKVision
 {
     public static class Client
     {
+        static FileStream stream;
         private static List<VideoModel> _videos = new List<VideoModel>();
         /// <summary>
         /// 初始化
@@ -51,6 +52,7 @@ namespace StreamMediaServer.HIKVision
         /// <returns></returns>
         public static Task PullStream(string rtmp, string ip, int port, string username, string password)
         {
+            stream = new FileStream("audio.mp3", FileMode.Append);
             return Task.Run(() =>
             {
                 var _video = new VideoModel()
@@ -123,21 +125,31 @@ namespace StreamMediaServer.HIKVision
                                     Array.Copy(video.Buffer.ToArray(), arr, video.Buffer.Count);
                                     var tuple = new Tuple<int, byte[]>(video.RTMPHandle, arr);
 
-                                    //异步推流
-                                    Task.Factory.StartNew((obj)=> {
-                                        var v = obj as Tuple<int, byte[]>;
-                                        IntPtr p = Marshal.AllocHGlobal(v.Item2.Length);
-                                        Marshal.Copy(v.Item2, 0, p, v.Item2.Length);
-                                        var ts = (ulong)((DateTime.Now.ToUniversalTime().Ticks - 621355968000000000) / 10000);
-                                        var result = LKRtmp.LKRtmp_PutData(v.Item1, 100, p, v.Item2.Length, ts, v.Item2[4] == 0x67 ? 1 : 0);
-                                        if(result < 0)
-                                        {
-                                            Console.WriteLine("推流结果="+result);
-                                        }
-                                        Marshal.FreeHGlobal(p);
-                                    }, tuple);
+                                    //异步推流（异步推流的方式会出现推流错误）
+                                    //Task.Factory.StartNew((obj)=> {
+                                    //     var v = obj as Tuple<int, byte[]>;
+                                    var v = tuple;
+                                    IntPtr p = Marshal.AllocHGlobal(v.Item2.Length);
+                                    Marshal.Copy(v.Item2, 0, p, v.Item2.Length);
+                                    var ts = (ulong)((DateTime.Now.ToUniversalTime().Ticks - 621355968000000000) / 10000);
+                                    var result = LKRtmp.LKRtmp_PutData(v.Item1, 100, p, v.Item2.Length, ts, v.Item2[4] == 0x67 ? 1 : 0);
+
+                                    Console.WriteLine(ts);
+
+                                    IntPtr pa = Marshal.AllocHGlobal(video.AudioBuffer.Count);
+                                    Marshal.Copy(video.AudioBuffer.ToArray(), 0, pa, video.AudioBuffer.Count);
+                                    //var result = LKRtmp.LKRtmp_PutData(v.Item1, 204, pa, video.AudioBuffer.Count, ts, 1);
+
+                                    if (result < 0)
+                                    {
+                                        Console.WriteLine("推流结果=" + result);
+                                    }
+                                    Marshal.FreeHGlobal(pa);
+                                    Marshal.FreeHGlobal(p);
+                                    //   }, tuple);
                                 }
                                 video.Buffer.Clear();
+                                video.AudioBuffer.Clear();
                             }
                             else if (-536805376 == head) //-536805376 = 0x00, 0x00, 0x01, 0xE0   视频
                             {
@@ -151,9 +163,15 @@ namespace StreamMediaServer.HIKVision
                             else if (-1073676288 == head)   //-1073676288 = 0x00, 0x00, 0x01, 0xC0  音频
                             {
                                 /*如果收到音频包则追加到缓存中*/
-                                var buff = new byte[dwBufSize];
-                                Marshal.Copy(pBuffer, buff, 0, (int)dwBufSize);
-                                //File.WriteAllBytes(inx++.ToString("000000"), buff);
+                                //var buff = new byte[dwBufSize];
+                                //Marshal.Copy(pBuffer, buff, 0, (int)dwBufSize);
+                                var skip = Marshal.ReadByte(pBuffer, 8) + 9;
+                                var buff = new byte[dwBufSize - skip];
+                                var pData = IntPtr.Add(pBuffer, skip);
+                                Marshal.Copy(pData, buff, 0, (int)(dwBufSize - skip));
+                                //video.Buffer.AddRange(buff);
+                                //stream.Write(buff, 0, buff.Length);
+                                video.AudioBuffer.AddRange(buff);
                             }
                             else
                             {
@@ -167,7 +185,7 @@ namespace StreamMediaServer.HIKVision
 
                 if (_video.RealHandle < 0)
                 {
-                    Console.WriteLine("预览失败，错误码：" + CHCNetSDK.NET_DVR_GetLastError());
+                    Console.WriteLine(ip + "预览失败，错误码：" + CHCNetSDK.NET_DVR_GetLastError());
                     LKRtmp.LKRtmp_Fini(_video.RTMPHandle);
                     CHCNetSDK.NET_DVR_Logout_V30(_video.UserHandle);
                     return;
