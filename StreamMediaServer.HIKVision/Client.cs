@@ -1,6 +1,7 @@
 ﻿using StreamMediaServer.Core;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -52,7 +53,7 @@ namespace StreamMediaServer.HIKVision
         /// <returns></returns>
         public static Task PullStream(string rtmp, string ip, int port, string username, string password)
         {
-            stream = new FileStream("audio.mp3", FileMode.Append);
+            stream = new FileStream("audio.aac", FileMode.Append);
             return Task.Run(() =>
             {
                 var _video = new VideoModel()
@@ -109,7 +110,7 @@ namespace StreamMediaServer.HIKVision
                         //lRealHandle和CHCNetSDK.NET_DVR_RealPlay_V40返回值是一样的
                         if (dwDataType == 1)  //数据头
                         {
-                            //海康私有协议头，只有第一次调用是为1                            
+                            //海康私有协议头，只有第一次调用是为1             
                         }
                         else if (dwDataType == 2)
                         {
@@ -121,7 +122,7 @@ namespace StreamMediaServer.HIKVision
                                 //Marshal.AllocHGlobal 分配内存 使用完成后一定要使用Marshal.FreeHGlobal 释放，否则会造成内存泄漏
                                 var ts = (ulong)((DateTime.Now.ToUniversalTime().Ticks - 621355968000000000) / 10000) - 1524100000000;
 
-                                Console.WriteLine(ts);
+                                //Console.WriteLine(ts);
 
                                 if (video.Buffer.Count > 0)
                                 {
@@ -140,8 +141,9 @@ namespace StreamMediaServer.HIKVision
                                 {
                                     IntPtr pa = Marshal.AllocHGlobal(video.AudioBuffer.Count);
                                     Marshal.Copy(video.AudioBuffer.ToArray(), 0, pa, video.AudioBuffer.Count);
-                                    LKRtmp.LKRtmp_PutData(video.RTMPHandle, 204, pa, video.AudioBuffer.Count, ts, 1);
+                                    LKRtmp.LKRtmp_PutData(video.RTMPHandle, 204, pa, video.AudioBuffer.Count, ts, 0);
                                     Marshal.FreeHGlobal(pa);
+                                    stream.Write(video.AudioBuffer.ToArray(), 0, video.AudioBuffer.Count);
                                     video.AudioBuffer.Clear();
                                 }
                                 else
@@ -161,20 +163,30 @@ namespace StreamMediaServer.HIKVision
                             else if (-1073676288 == head)   //-1073676288 = 0x00, 0x00, 0x01, 0xC0  音频
                             {
                                 /*如果收到音频包则追加到缓存中*/
-                                //var buff = new byte[dwBufSize];
-                                //Marshal.Copy(pBuffer, buff, 0, (int)dwBufSize);
+                                //var arr = new byte[dwBufSize];
+                                //Marshal.Copy(pBuffer, arr, 0, (int)dwBufSize);
+                                //foreach(var b in arr)
+                                //{
+                                //    Console.Write(b.ToString("X") + " ");
+                                //}
+                                //Console.WriteLine("---------------");
+
                                 var skip = Marshal.ReadByte(pBuffer, 8) + 9;
                                 var buff = new byte[dwBufSize - skip];
                                 var pData = IntPtr.Add(pBuffer, skip);
                                 Marshal.Copy(pData, buff, 0, (int)(dwBufSize - skip));
-                                //video.Buffer.AddRange(buff);
-                                //stream.Write(buff, 0, buff.Length);
                                 video.AudioBuffer.AddRange(buff);
+
+                                //foreach (var b in buff)
+                                //{
+                                //    Console.Write(b.ToString("X") + " ");
+                                //}
+                                //Console.WriteLine("***********");
                             }
                             else
                             {
-                                //var t = BitConverter.GetBytes(head);
-                                //Console.WriteLine($"[{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")}] 未知包头:{t[0].ToString("X")} {t[1].ToString("X")} {t[2].ToString("X")} {t[3].ToString("X")}");
+                                var t = BitConverter.GetBytes(head);
+                                Console.WriteLine($"[{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")}] 未知包头:{t[0].ToString("X")} {t[1].ToString("X")} {t[2].ToString("X")} {t[3].ToString("X")}");
                             }
                         }
                     }
