@@ -116,40 +116,38 @@ namespace StreamMediaServer.HIKVision
                             var head = Marshal.ReadInt32(pBuffer, 0);
                             if (head == -1174339584) //0x00, 0x00, 0x01, 0xBA = -1174339584   PS包
                             {
+
                                 /*如果收到PS包头，表示的是接下来的数据是一个新的PS包，上一个PS数据包接收完成*/
+                                //Marshal.AllocHGlobal 分配内存 使用完成后一定要使用Marshal.FreeHGlobal 释放，否则会造成内存泄漏
+                                var ts = (ulong)((DateTime.Now.ToUniversalTime().Ticks - 621355968000000000) / 10000) - 1524100000000;
+
+                                Console.WriteLine(ts);
 
                                 if (video.Buffer.Count > 0)
                                 {
-                                    //Marshal.AllocHGlobal 分配内存 使用完成后一定要使用Marshal.FreeHGlobal 释放，否则会造成内存泄漏
-                                    var arr = new byte[video.Buffer.Count];
-                                    Array.Copy(video.Buffer.ToArray(), arr, video.Buffer.Count);
-                                    var tuple = new Tuple<int, byte[]>(video.RTMPHandle, arr);
+                                    IntPtr p = Marshal.AllocHGlobal(video.Buffer.Count);
+                                    Marshal.Copy(video.Buffer.ToArray(), 0, p, video.Buffer.Count);
+                                    var result = LKRtmp.LKRtmp_PutData(video.RTMPHandle, 100, p, video.Buffer.Count, ts, video.Buffer[4] == 0x67 ? 1 : 0);
+                                    Marshal.FreeHGlobal(p);
+                                    video.Buffer.Clear();
+                                }
+                                else
+                                {
+                                    Console.WriteLine("无视频");
+                                }
 
-                                    //异步推流（异步推流的方式会出现推流错误）
-                                    //Task.Factory.StartNew((obj)=> {
-                                    //     var v = obj as Tuple<int, byte[]>;
-                                    var v = tuple;
-                                    IntPtr p = Marshal.AllocHGlobal(v.Item2.Length);
-                                    Marshal.Copy(v.Item2, 0, p, v.Item2.Length);
-                                    var ts = (ulong)((DateTime.Now.ToUniversalTime().Ticks - 621355968000000000) / 10000);
-                                    var result = LKRtmp.LKRtmp_PutData(v.Item1, 100, p, v.Item2.Length, ts, v.Item2[4] == 0x67 ? 1 : 0);
-
-                                    Console.WriteLine(ts);
-
+                                if (video.AudioBuffer.Count > 0)
+                                {
                                     IntPtr pa = Marshal.AllocHGlobal(video.AudioBuffer.Count);
                                     Marshal.Copy(video.AudioBuffer.ToArray(), 0, pa, video.AudioBuffer.Count);
-                                    //var result = LKRtmp.LKRtmp_PutData(v.Item1, 204, pa, video.AudioBuffer.Count, ts, 1);
-
-                                    if (result < 0)
-                                    {
-                                        Console.WriteLine("推流结果=" + result);
-                                    }
+                                    LKRtmp.LKRtmp_PutData(video.RTMPHandle, 204, pa, video.AudioBuffer.Count, ts, 1);
                                     Marshal.FreeHGlobal(pa);
-                                    Marshal.FreeHGlobal(p);
-                                    //   }, tuple);
+                                    video.AudioBuffer.Clear();
                                 }
-                                video.Buffer.Clear();
-                                video.AudioBuffer.Clear();
+                                else
+                                {
+                                    Console.WriteLine("无音频");
+                                }
                             }
                             else if (-536805376 == head) //-536805376 = 0x00, 0x00, 0x01, 0xE0   视频
                             {
